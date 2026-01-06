@@ -28,7 +28,7 @@ export interface Chat {
 export interface StyleTemplate {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   icon: string;
   inputExample: string;
   outputExample: string;

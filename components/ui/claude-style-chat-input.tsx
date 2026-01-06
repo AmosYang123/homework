@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Plus, X, FileText, ClipboardList } from "lucide-react";
+import { Plus, X, FileText, ClipboardList, Youtube, Loader2 } from "lucide-react";
 import { StyleTemplate } from "../../types";
+import { youtubeService } from "../../services/youtubeService";
 
 interface AttachedFile {
     id: string;
@@ -17,15 +18,23 @@ interface PastedSnippet {
 }
 
 const FilePreview: React.FC<{ file: AttachedFile; onRemove: (id: string) => void }> = ({ file, onRemove }) => (
-    <div className="relative group shrink-0 w-28 h-28 border border-border-primary bg-bg-surface p-3 flex flex-col justify-between hover:border-accent transition-all animate-slide-in">
-        <div className="flex justify-between items-start">
-            <FileText size={14} className="text-text-secondary opacity-30" />
-            <div className="text-[8px] font-bold text-text-secondary uppercase tracking-tighter truncate w-16 text-right">{file.file.name.split('.').pop()}</div>
+    <div className="relative group shrink-0 w-28 h-28 border border-border-primary bg-bg-surface flex flex-col justify-between hover:border-accent transition-all animate-slide-in overflow-hidden">
+        {file.preview ? (
+            <div className="absolute inset-0 z-0">
+                <img src={file.preview} alt={file.file.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+                <div className="absolute inset-0 bg-gradient-to-t from-bg-surface via-transparent to-transparent" />
+            </div>
+        ) : null}
+        <div className="relative z-10 p-3 h-full flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+                <FileText size={14} className="text-text-secondary opacity-30" />
+                <div className="text-[8px] font-bold text-text-secondary uppercase tracking-tighter truncate w-16 text-right">{file.file.name.split('.').pop()}</div>
+            </div>
+            <div className="text-[11px] font-bold truncate leading-tight bg-bg-surface/80 backdrop-blur-sm -mx-3 -mb-3 p-3">{file.file.name}</div>
         </div>
-        <div className="text-[11px] font-bold truncate leading-tight">{file.file.name}</div>
-        <button 
+        <button
             onClick={() => onRemove(file.id)}
-            className="absolute top-0 right-0 p-1.5 bg-bg-main border-l border-b border-border-primary opacity-0 group-hover:opacity-100 transition-opacity text-text-secondary hover:text-accent"
+            className="absolute top-0 right-0 p-1.5 bg-bg-main border-l border-b border-border-primary z-20 opacity-0 group-hover:opacity-100 transition-opacity text-text-secondary hover:text-accent"
             aria-label="Remove file"
         >
             <X size={12} />
@@ -37,7 +46,7 @@ const SnippetPreview: React.FC<{ snippet: PastedSnippet; onRemove: (id: string) 
     <div className="relative group shrink-0 w-28 h-28 border border-border-primary bg-bg-surface p-3 flex flex-col justify-between hover:border-accent transition-all animate-slide-in">
         <ClipboardList size={14} className="text-text-secondary opacity-30" />
         <div className="text-[10px] font-mono text-text-secondary line-clamp-3 overflow-hidden leading-snug">{snippet.content}</div>
-        <button 
+        <button
             onClick={() => onRemove(snippet.id)}
             className="absolute top-0 right-0 p-1.5 bg-bg-main border-l border-b border-border-primary opacity-0 group-hover:opacity-100 transition-opacity text-text-secondary hover:text-accent"
             aria-label="Remove snippet"
@@ -64,10 +73,12 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
     const [files, setFiles] = useState<AttachedFile[]>([]);
     const [pastedContent, setPastedContent] = useState<PastedSnippet[]>([]);
     const [activeTemplates, setActiveTemplates] = useState<StyleTemplate[]>([]);
-    
+
     const [showMentions, setShowMentions] = useState(false);
     const [mentionFilter, setMentionFilter] = useState("");
     const [mentionIdx, setMentionIdx] = useState(0);
+    const [detectedYouTube, setDetectedYouTube] = useState<string | null>(null);
+    const [isExtractingYT, setIsExtractingYT] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,12 +119,12 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
         const words = message.split(/(@\w*)$/);
         // words[0] is the text before the mention
         setMessage(words[0] || "");
-        
+
         // Add the template to the active list
         if (!activeTemplates.find(at => at.id === t.id)) {
             setActiveTemplates([...activeTemplates, t]);
         }
-        
+
         setShowMentions(false);
         textareaRef.current?.focus();
     };
@@ -145,7 +156,7 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
         setMessage(val);
-        
+
         // Regex to detect if we are typing a mention at the end of the string
         const match = val.match(/@(\w*)$/);
         if (match) {
@@ -155,13 +166,71 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
         } else {
             setShowMentions(false);
         }
+
+        // Detect YouTube links - robust check
+        if (val.includes('youtube.com/') || val.includes('youtu.be/')) {
+            const videoId = youtubeService.extractVideoId(val);
+            if (videoId) {
+                // Ensure we capture the full URL for replacement
+                const fullMatch = val.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+                setDetectedYouTube(fullMatch ? fullMatch[0] : val); // Fallback to full value if match fails but ID exists
+            } else {
+                setDetectedYouTube(null);
+            }
+        } else {
+            setDetectedYouTube(null);
+        }
     };
 
     const handlePaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData.items;
+        let hasImage = false;
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' });
+                    handleFiles([file]);
+                    hasImage = true;
+                }
+            }
+        }
+
+        if (hasImage) return;
+
         const text = e.clipboardData.getData('text');
         if (text.length > 500) {
             e.preventDefault();
             setPastedContent(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), content: text }]);
+        }
+    };
+
+    const handleExtractYouTube = async () => {
+        if (!detectedYouTube) return;
+        setIsExtractingYT(true);
+        try {
+            const transcript = await youtubeService.getTranscript(detectedYouTube);
+            // Replace the YouTube link with the transcript wrapped in clear context tags
+            // This helps the LLM distinguish between the user's question and the video content
+            const contextWrapper = `
+<transcript_context>
+[SOURCE: YouTube Video ID ${youtubeService.extractVideoId(detectedYouTube)}]
+[INSTRUCTION: Use the following transcript to answer the user's request. If the answer is NOT in this text, say so. Do not invent facts.]
+${transcript}
+</transcript_context>`;
+
+            const newMessage = message.replace(detectedYouTube, contextWrapper);
+            setMessage(newMessage);
+            setDetectedYouTube(null);
+        } catch (error: any) {
+            // Add transcript error as a pasted snippet so user can see it
+            setPastedContent(prev => [...prev, {
+                id: Math.random().toString(36).substr(2, 9),
+                content: `[YouTube Error] ${error.message}`
+            }]);
+        } finally {
+            setIsExtractingYT(false);
         }
     };
 
@@ -196,12 +265,12 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
                     </div>
                 )}
 
-                <div className="flex flex-col p-6">
+                <div className="flex flex-col p-4">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                         {activeTemplates.map(t => (
                             <div key={t.id} className="inline-flex items-center gap-2 bg-accent/5 text-accent border border-accent/20 px-2 py-1 rounded-md animate-fade-in group select-none">
                                 <span className="text-[10px] font-bold uppercase tracking-widest">@{t.name}</span>
-                                <button 
+                                <button
                                     onClick={() => removeTemplate(t.id)}
                                     className="hover:bg-accent hover:text-bg-main rounded-sm p-0.5 transition-colors"
                                 >
@@ -223,20 +292,35 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
                         autoFocus
                     />
 
-                    <div className="flex justify-between items-center mt-6">
-                        <div className="flex items-center gap-8">
-                            <button 
-                                onClick={() => fileInputRef.current?.click()} 
+                    <div className="flex justify-between items-center mt-4">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
                                 className="text-text-secondary hover:text-accent transition-all focus:outline-none p-1 -ml-1 active:scale-90"
                                 title="Attach Source Material"
                             >
                                 <Plus size={20} strokeWidth={2.5} />
                             </button>
+                            {detectedYouTube && (
+                                <button
+                                    onClick={handleExtractYouTube}
+                                    disabled={isExtractingYT}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-500 text-[9px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-50"
+                                    title="Extract YouTube Transcript"
+                                >
+                                    {isExtractingYT ? (
+                                        <Loader2 size={12} className="animate-spin" />
+                                    ) : (
+                                        <Youtube size={12} />
+                                    )}
+                                    {isExtractingYT ? 'Extracting...' : 'Extract Transcript'}
+                                </button>
+                            )}
                         </div>
-                        <button 
-                            onClick={handleSend} 
+                        <button
+                            onClick={handleSend}
                             disabled={!hasContent || isLoading}
-                            className={`px-8 py-3 text-[10px] font-bold uppercase tracking-[0.25em] transition-all focus:outline-none active:scale-[0.98] ${hasContent && !isLoading ? 'bg-accent text-bg-main shadow-lg shadow-accent/20' : 'bg-accent-soft text-text-secondary pointer-events-none'}`}
+                            className={`px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.25em] transition-all focus:outline-none active:scale-[0.98] ${hasContent && !isLoading ? 'bg-accent text-bg-main shadow-lg shadow-accent/20' : 'bg-accent-soft text-text-secondary pointer-events-none'}`}
                         >
                             {isLoading ? 'Processing' : 'ENTER'}
                         </button>

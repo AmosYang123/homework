@@ -18,12 +18,12 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({ template, onSave, onC
   const handleNext = () => setStep(s => Math.min(s + 1, 3));
   const handleBack = () => setStep(s => Math.max(s - 1, 1));
 
-  const isFormValid = name.trim() && description.trim() && inputExample.trim() && outputExample.trim();
+  const isFormValid = name.trim() && inputExample.trim() && outputExample.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-main/60 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-bg-main w-full max-w-2xl border border-border-primary overflow-hidden flex flex-col max-h-[90vh]">
-        
+
         <header className="px-8 py-6 border-b border-border-primary flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold tracking-tight">
@@ -47,11 +47,11 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({ template, onSave, onC
                 <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary">Identifier</label>
                 <div className="relative">
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 text-accent font-bold text-lg">@</span>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value.replace(/\s+/g, ''))}
-                    placeholder="PatternName" 
+                    placeholder="PatternName"
                     className="w-full pl-6 py-3 border-b border-border-primary focus:border-accent outline-none font-bold text-xl transition-all"
                     autoFocus
                   />
@@ -60,11 +60,11 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({ template, onSave, onC
               </div>
 
               <div className="space-y-4">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary">Description</label>
-                <textarea 
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary">Description (Optional)</label>
+                <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Define the transformation scope..." 
+                  placeholder="Define the transformation scope..."
                   className="w-full py-2 border-b border-border-primary focus:border-accent outline-none transition-all resize-none text-sm placeholder:text-text-secondary/30"
                   rows={2}
                 />
@@ -77,10 +77,10 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({ template, onSave, onC
               <div className="space-y-4">
                 <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary mb-2">Input Context f(x)</div>
                 <p className="text-[11px] text-text-secondary uppercase tracking-widest mb-4">Paste unformatted sample content</p>
-                <textarea 
+                <textarea
                   value={inputExample}
                   onChange={(e) => setInputExample(e.target.value)}
-                  placeholder="Raw source material..." 
+                  placeholder="Raw source material..."
                   className="w-full h-80 p-6 bg-bg-surface border border-border-primary focus:border-accent outline-none transition-all resize-none text-[13px] leading-relaxed custom-scrollbar font-mono"
                 />
               </div>
@@ -92,10 +92,10 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({ template, onSave, onC
               <div className="space-y-4">
                 <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary mb-2">Output Context = y</div>
                 <p className="text-[11px] text-text-secondary uppercase tracking-widest mb-4">Provide the idealized transformation</p>
-                <textarea 
+                <textarea
                   value={outputExample}
                   onChange={(e) => setOutputExample(e.target.value)}
-                  placeholder="Target style output..." 
+                  placeholder="Target style output..."
                   className="w-full h-80 p-6 bg-accent-soft border border-border-primary focus:border-accent outline-none transition-all resize-none text-[13px] leading-relaxed custom-scrollbar font-bold"
                 />
               </div>
@@ -114,15 +114,15 @@ const TemplateCreator: React.FC<TemplateCreatorProps> = ({ template, onSave, onC
           <div className="flex gap-8 items-center">
             <button onClick={onClose} className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary hover:text-accent transition-colors">Cancel</button>
             {step < 3 ? (
-              <button 
-                onClick={handleNext} 
-                disabled={step === 1 && (!name || !description)}
+              <button
+                onClick={handleNext}
+                disabled={step === 1 && !name}
                 className="px-8 py-3 bg-accent text-bg-main text-[10px] font-bold uppercase tracking-[0.2em] disabled:opacity-30 transition-all active:scale-95"
               >
                 Continue
               </button>
             ) : (
-              <button 
+              <button
                 disabled={!isFormValid}
                 onClick={() => onSave({ name, description, inputExample, outputExample })}
                 className="px-8 py-3 bg-accent text-bg-main text-[10px] font-bold uppercase tracking-[0.2em] disabled:opacity-30 transition-all active:scale-95"

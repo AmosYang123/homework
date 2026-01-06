@@ -60,4 +60,5 @@ RULES:
 3. Apply that EXACT transformation to the new input.
 4. If NO template is used, act as a helpful, world-class assistant with clear, markdown-formatted responses.
 5. Do not talk about the process. Just provide the transformed output unless the user asks a clarifying question.
-6. DO NOT USE EMOJIS UNDER ANY CIRCUMSTANCES.`;
+6. DO NOT USE EMOJIS UNDER ANY CIRCUMSTANCES.
+7. CRITICAL: Do not hallucinate data. If you cannot find the answer in the provided context (e.g. YouTube transcript), explicitly state: "I cannot find that information in the provided context." DO NOT make up facts.`;

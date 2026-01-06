@@ -131,6 +131,63 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
     onUpdateMessages(chat.messages.filter(m => m.id !== id));
   };
 
+  const handleEditMessage = async (id: string, newContent: string) => {
+    const index = chat.messages.findIndex(m => m.id === id);
+    if (index === -1) return;
+
+    const messageToEdit = chat.messages[index];
+    const isUser = messageToEdit.role === 'user';
+
+    if (isUser) {
+      // Truncate at this point and regenerate
+      const history = chat.messages.slice(0, index);
+      const userMessage: Message = {
+        ...messageToEdit,
+        content: newContent,
+        timestamp: Date.now()
+      };
+
+      const newMessages = [...history, userMessage];
+      onUpdateMessages(newMessages);
+      setIsLoading(true);
+
+      try {
+        const templateToUse = templates.find(t => t.id === messageToEdit.templateUsedId);
+        const response = await groqService.generateResponse(
+          newContent,
+          history,
+          templateToUse || undefined,
+          messageToEdit.attachments || [],
+          'llama-3.3-70b-versatile',
+          0
+        );
+
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response,
+          timestamp: Date.now(),
+          templateUsedId: messageToEdit.templateUsedId
+        };
+
+        onUpdateMessages([...newMessages, assistantMessage]);
+      } catch (error) {
+        const errorMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `Regeneration Failure: ${error instanceof Error ? error.message : String(error)}`,
+          timestamp: Date.now(),
+        };
+        onUpdateMessages([...newMessages, errorMessage]);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      const newMessages = chat.messages.map(m => m.id === id ? { ...m, content: newContent } : m);
+      onUpdateMessages(newMessages);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-bg-main">
       <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pt-16 pb-48 flex flex-col">
@@ -156,9 +213,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
                     activeTemplates: msg.templateUsedId ? [templates.find(t => t.id === msg.templateUsedId)!] : []
                   })}
                   onDelete={() => handleDeleteMessage(msg.id)}
+                  onEdit={(content) => handleEditMessage(msg.id, content)}
                 />
               ))}
               {isLoading && (
+
                 <div className="flex items-center gap-6 py-10 animate-slide-in">
                   <div className="flex gap-2">
                     <div className="w-1.5 h-1.5 bg-accent animate-pulse"></div>
@@ -174,7 +233,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-bg-main via-bg-main to-transparent pt-20 shrink-0 z-20">
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-bg-main via-bg-main to-transparent pt-10 shrink-0 z-20">
         <div className="max-w-4xl mx-auto">
           {stickyTemplate && (
             <div className="mb-6 inline-flex items-center gap-6 bg-accent text-bg-main px-6 py-3 border border-accent shadow-2xl animate-slide-in">

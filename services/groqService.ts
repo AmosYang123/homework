@@ -21,25 +21,45 @@ export class GroqService {
         history: Message[],
         activeTemplate?: StyleTemplate,
         attachments: FileAttachment[] = [],
-        modelName: string = 'llama-3.1-70b-versatile',
+        modelName: string = 'llama-3.3-70b-versatile',
         thinkingBudget: number = 0
     ): Promise<string> {
+        // Detect if we have images and switch to a vision model if necessary
+        const hasImages = attachments.some(a => a.type.startsWith('image/'));
+        const activeModel = hasImages ? 'meta-llama/llama-4-scout-17b-16e-instruct' : modelName;
 
         const messages: any[] = [
             { role: "system", content: SYSTEM_INSTRUCTION }
         ];
 
         for (const m of history.slice(-10)) {
-            messages.push({
-                role: m.role === 'user' ? 'user' : 'assistant',
-                content: m.content
-            });
+            // Check if historical message had attachments (especially images)
+            if (m.attachments && m.attachments.some(a => a.type.startsWith('image/'))) {
+                const content: any[] = [{ type: "text", text: m.content }];
+                for (const a of m.attachments) {
+                    if (a.type.startsWith('image/') && a.data) {
+                        content.push({
+                            type: "image_url",
+                            image_url: { url: a.data }
+                        });
+                    }
+                }
+                messages.push({
+                    role: m.role === 'user' ? 'user' : 'assistant',
+                    content: content
+                });
+            } else {
+                messages.push({
+                    role: m.role === 'user' ? 'user' : 'assistant',
+                    content: m.content
+                });
+            }
         }
 
-        let finalPrompt = userInput;
+        let userPrompt = userInput;
 
         if (activeTemplate) {
-            finalPrompt = `
+            userPrompt = `
 [STYLE TEMPLATE: @${activeTemplate.name}]
 LEARNING PATTERN:
 Input Example: """${activeTemplate.inputExample}"""
@@ -52,11 +72,48 @@ TASK: Apply the learned transformation logic f(x)=y to the NEW INPUT. Output ONL
 `;
         }
 
-        if (attachments.length > 0) {
-            finalPrompt += "\n\n[USER ATTACHED FILES: " + attachments.map(a => a.name).join(", ") + "]";
+        // Handle attachments for the current message
+        let userContent: any;
+        if (hasImages) {
+            const content: any[] = [{ type: "text", text: userPrompt }];
+            for (const a of attachments) {
+                if (a.type.startsWith('image/') && a.data) {
+                    content.push({
+                        type: "image_url",
+                        image_url: { url: a.data }
+                    });
+                } else if ((a.type.startsWith('text/') || a.name.match(/\.(txt|ts|tsx|js|jsx|json|md)$/i)) && a.data) {
+                    try {
+                        const base64Content = a.data.split(',')[1];
+                        const decodedContent = atob(base64Content);
+                        content[0].text += `\n\n[FILE ATTACHED: ${a.name}]\nRAW CONTENT:\n\"\"\"\n${decodedContent}\n\"\"\"`;
+                    } catch (e) {
+                        content[0].text += `\n\n[FILE ATTACHED: ${a.name}] (Binary/Encoded content)`;
+                    }
+                }
+            }
+            userContent = content;
+        } else {
+            let finalPrompt = userPrompt;
+            if (attachments.length > 0) {
+                for (const a of attachments) {
+                    if ((a.type.startsWith('text/') || a.name.match(/\.(txt|ts|tsx|js|jsx|json|md)$/i)) && a.data) {
+                        try {
+                            const base64Content = a.data.split(',')[1];
+                            const decodedContent = atob(base64Content);
+                            finalPrompt += `\n\n[FILE ATTACHED: ${a.name}]\nRAW CONTENT:\n\"\"\"\n${decodedContent}\n\"\"\"`;
+                        } catch (e) {
+                            finalPrompt += `\n\n[FILE ATTACHED: ${a.name}] (Binary/Encoded content)`;
+                        }
+                    } else {
+                        finalPrompt += `\n\n[FILE ATTACHED: ${a.name}]`;
+                    }
+                }
+            }
+            userContent = finalPrompt;
         }
 
-        messages.push({ role: "user", content: finalPrompt });
+        messages.push({ role: "user", content: userContent });
 
         if (!this.client.apiKey && import.meta.env.DEV) {
             return "Configuration Error: Groq API Key is missing. Please add VITE_GROQ_API_KEY to your .env.local file.";
@@ -70,7 +127,7 @@ TASK: Apply the learned transformation logic f(x)=y to the NEW INPUT. Output ONL
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         messages: messages,
-                        model: modelName,
+                        model: activeModel,
                         temperature: 0.7,
                         max_tokens: 8192
                     })
@@ -91,7 +148,7 @@ TASK: Apply the learned transformation logic f(x)=y to the NEW INPUT. Output ONL
 
         try {
             const completion = await this.client.chat.completions.create({
-                model: modelName,
+                model: activeModel,
                 messages: messages,
                 temperature: 0.7,
                 max_tokens: 8192,

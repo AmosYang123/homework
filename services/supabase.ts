@@ -82,6 +82,7 @@ export const supabaseService = {
             inputExample: t.input_example,
             outputExample: t.output_example,
             createdAt: t.created_at,
+            lastUsedAt: t.last_used_at ? new Date(t.last_used_at).getTime() : undefined,
             useCount: t.use_count
         }));
     },
@@ -98,6 +99,7 @@ export const supabaseService = {
                 input_example: template.inputExample,
                 output_example: template.outputExample,
                 created_at: template.createdAt,
+                last_used_at: template.lastUsedAt ? new Date(template.lastUsedAt).toISOString() : null,
                 use_count: template.useCount
             });
 

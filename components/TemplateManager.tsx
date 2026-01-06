@@ -14,7 +14,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({ templates, onEdit, on
 
   const filtered = templates.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
-    t.description.toLowerCase().includes(search.toLowerCase())
+    (t.description?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
 
   return (
@@ -63,7 +63,9 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({ templates, onEdit, on
                     <div className="h-[1px] w-12 bg-border-primary"></div>
                     <span className="text-[9px] uppercase font-bold text-text-secondary tracking-[0.3em] opacity-40">Standard Logic</span>
                   </div>
-                  <p className="text-[14px] text-text-secondary leading-relaxed mb-8 max-w-2xl font-medium">{template.description}</p>
+                  {template.description && (
+                    <p className="text-[14px] text-text-secondary leading-relaxed mb-8 max-w-2xl font-medium">{template.description}</p>
+                  )}
                   <div className="flex gap-10 text-[9px] font-bold uppercase tracking-[0.3em] opacity-30">
                     <div className="flex items-center gap-2"><i className="fa-solid fa-chart-line"></i> {template.useCount} Executions</div>
                     <div className="flex items-center gap-2"><i className="fa-solid fa-code-branch"></i> Logic Verified</div>
