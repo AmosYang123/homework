@@ -58,6 +58,37 @@ TASK: Apply the learned transformation logic f(x)=y to the NEW INPUT. Output ONL
 
         messages.push({ role: "user", content: finalPrompt });
 
+        if (!this.client.apiKey && import.meta.env.DEV) {
+            return "Configuration Error: Groq API Key is missing. Please add VITE_GROQ_API_KEY to your .env.local file.";
+        }
+
+        // Use Proxy in Production to bypass network restrictions (e.g. School WiFi)
+        if (!import.meta.env.DEV) {
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: messages,
+                        model: modelName,
+                        temperature: 0.7,
+                        max_tokens: 8192
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Proxy Error: ${response.status} ${response.statusText}`);
+                }
+
+                const completion = await response.json();
+                return completion.choices[0].message.content || "I was unable to generate a response.";
+            } catch (error: any) {
+                console.error("Proxy Request Failed:", error);
+                return `Connection Error: Failed to reach AI service via Server Proxy. Details: ${error.message}`;
+            }
+        }
+
         try {
             const completion = await this.client.chat.completions.create({
                 model: modelName,
@@ -71,14 +102,26 @@ TASK: Apply the learned transformation logic f(x)=y to the NEW INPUT. Output ONL
             return choice.message.content || "I was unable to generate a response.";
         } catch (error: any) {
             console.error("Groq API Error:", error);
+
             if (error.message?.includes("401")) {
-                return "Authentication error: Please ensure your Groq API key is valid.";
+                return "Authentication Error: The provided Groq API key is invalid (401). Please check your .env.local file.";
             }
-            throw error;
+
+            if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+                return "Network Error: Unable to connect to Groq API. Your school network might be blocking 'api.groq.com'. Try using a mobile hotspot or VPN if allowed.";
+            }
+
+            return `Error: ${error.message || "An unexpected error occurred while contacting the AI service."}`;
         }
+
     }
 
     async generateTitle(userInput: string): Promise<string> {
+        if (!this.client.apiKey) {
+            console.warn("Groq API Key missing, skipping title generation.");
+            return "New Chat";
+        }
+
         try {
             const completion = await this.client.chat.completions.create({
                 model: 'llama-3.3-70b-versatile',
@@ -90,10 +133,11 @@ TASK: Apply the learned transformation logic f(x)=y to the NEW INPUT. Output ONL
                 max_tokens: 20,
             });
             return completion.choices[0].message.content?.trim().replace(/^["']|["']$/g, '') || "New Chat";
-        } catch (error) {
-            console.error("Title generation failed:", error);
+        } catch (error: any) {
+            console.error("Title generation failed:", error.message);
             return "New Chat";
         }
+
     }
 }
 
