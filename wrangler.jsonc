@@ -3,7 +3,6 @@
     "name": "ai-intelligence-engine",
     "compatibility_date": "2026-01-06",
     "assets": {
-        "binding": "ASSETS",
         "directory": "./dist"
     },
     "observability": {
