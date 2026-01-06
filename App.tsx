@@ -28,66 +28,113 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
-  // Initialize data
+  // Initialize data and handle Auth
   useEffect(() => {
-    const savedTemplates = localStorage.getItem('trainer_templates_v4');
-    const savedChats = localStorage.getItem('trainer_chats_v4');
-    const savedSettings = localStorage.getItem('trainer_settings_v4');
-    const savedUser = localStorage.getItem('homework_user');
+    // Listen for Auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth Event:', event);
+      if (session?.user) {
+        const u: User = {
+          id: session.user.id,
+          name: session.user.email?.split('@')[0] || 'User',
+          email: session.user.email,
+          isCloud: true
+        };
+        setUser(u);
+        localStorage.setItem('homework_user', JSON.stringify(u));
+        // After user is set by auth change, load cloud data
+        loadCloudData(u.id);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        localStorage.removeItem('homework_user');
+        // When signed out, revert to local data
+        loadLocalData();
+      }
+      setIsAuthRestored(true);
+    });
 
-    if (savedUser) setUser(JSON.parse(savedUser));
-    setIsAuthRestored(true);
+    const init = async () => {
+      // 1. Restore User Session (from localStorage, will be overridden by onAuthStateChange if session is active)
+      const savedUser = localStorage.getItem('homework_user');
+      let currentUser: User | null = null;
 
-    if (savedTemplates) setTemplates(JSON.parse(savedTemplates));
-    else setTemplates(INITIAL_TEMPLATES);
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        setUser(currentUser);
+      }
+      // setIsAuthRestored(true); // Moved inside onAuthStateChange to ensure it's set after initial auth check
 
-    if (savedChats) {
-      const parsedChats = JSON.parse(savedChats);
-      setChats(parsedChats);
-      if (parsedChats.length > 0) setActiveChatId(parsedChats[0].id);
-    }
+      // 2. Load Settings (Local)
+      const savedSettings = localStorage.getItem('trainer_settings_v4');
+      if (savedSettings) setSettings(JSON.parse(savedSettings));
 
-    if (savedSettings) setSettings(JSON.parse(savedSettings));
+      // 3. Initial Data Load (if not handled by onAuthStateChange for cloud users)
+      // If currentUser is already set and isCloud, onAuthStateChange will trigger loadCloudData.
+      // If currentUser is local or null, load local data.
+      if (!currentUser?.isCloud) {
+        loadLocalData();
+      }
+    };
+
+    const loadCloudData = async (userId: string) => {
+      try {
+        const [cloudChats, cloudTemplates] = await Promise.all([
+          supabaseService.getChats(userId),
+          supabaseService.getTemplates(userId)
+        ]);
+
+        setChats(cloudChats.length > 0 ? cloudChats : []);
+        if (cloudChats.length > 0) setActiveChatId(cloudChats[0].id);
+        setTemplates(cloudTemplates.length > 0 ? cloudTemplates : INITIAL_TEMPLATES);
+      } catch (err) {
+        console.error("Cloud sync failed on init:", err);
+        setToast({ message: "Cloud sync failed. Loading local data.", type: "error" });
+        loadLocalData(); // Fallback to local if cloud fails
+      }
+    };
+
+    const loadLocalData = () => {
+      const savedTemplates = localStorage.getItem('trainer_templates_v4');
+      const savedChats = localStorage.getItem('trainer_chats_v4');
+
+      if (savedTemplates) setTemplates(JSON.parse(savedTemplates));
+      else setTemplates(INITIAL_TEMPLATES);
+
+      if (savedChats) {
+        const parsedChats = JSON.parse(savedChats);
+        setChats(parsedChats);
+        if (parsedChats.length > 0) setActiveChatId(parsedChats[0].id);
+      } else {
+        setChats([]);
+        setActiveChatId(null);
+      }
+    };
+
+    init();
 
     // Monitor system theme
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setIsSystemDark(mediaQuery.matches);
     const handler = (e: MediaQueryListEvent) => setIsSystemDark(e.matches);
     mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
+    return () => {
+      mediaQuery.removeEventListener('change', handler);
+      subscription.unsubscribe(); // Clean up auth subscription
+    };
   }, []);
 
-  // Persist data
-  useEffect(() => localStorage.setItem('trainer_templates_v4', JSON.stringify(templates)), [templates]);
-  useEffect(() => localStorage.setItem('trainer_chats_v4', JSON.stringify(chats)), [chats]);
-  useEffect(() => localStorage.setItem('trainer_settings_v4', JSON.stringify(settings)), [settings]);
-
-  // Determine active theme
-  const isDark = useMemo(() => {
-    if (settings.theme === 'dark') return true;
-    if (settings.theme === 'light') return false;
-    return isSystemDark;
-  }, [settings.theme, isSystemDark]);
+  // Persist local data (and sync to cloud if needed)
+  useEffect(() => {
+    localStorage.setItem('trainer_templates_v4', JSON.stringify(templates));
+  }, [templates]);
 
   useEffect(() => {
-    if (isDark) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, [isDark]);
+    localStorage.setItem('trainer_chats_v4', JSON.stringify(chats));
+  }, [chats]);
 
-  // Cloud Sync: Load data when user changes
   useEffect(() => {
-    if (user?.isCloud) {
-      supabaseService.getChats(user.id).then(cloudChats => {
-        if (cloudChats.length > 0) {
-          setChats(cloudChats);
-          if (!activeChatId) setActiveChatId(cloudChats[0].id);
-        }
-      });
-      supabaseService.getTemplates(user.id).then(cloudTemplates => {
-        if (cloudTemplates.length > 0) setTemplates(cloudTemplates);
-      });
-    }
-  }, [user]);
+    localStorage.setItem('trainer_settings_v4', JSON.stringify(settings));
+  }, [settings]);
 
   const activeChat = useMemo(() => chats.find(c => c.id === activeChatId) || null, [chats, activeChatId]);
 
@@ -107,31 +154,35 @@ const App: React.FC = () => {
   };
 
   const handleUpdateMessages = async (chatId: string, messages: Message[]) => {
-    // Optimistic update first
-    setChats(prev => prev.map(c => {
-      if (c.id === chatId) {
-        const updated = { ...c, messages, lastUpdatedAt: Date.now() };
-        if (user?.isCloud) supabaseService.upsertChat(user.id, updated);
-        return updated;
-      }
-      return c;
-    }));
-
-    // Handle Title Generation
     const chat = chats.find(c => c.id === chatId);
     if (!chat) return;
 
-    if (messages.length > 0) {
-      const firstUserMsg = messages.find(m => m.role === 'user');
-      const isNewChat = chat.title === 'New Chat' || !chat.title;
+    const lastUpdated = Date.now();
 
-      if (firstUserMsg && isNewChat) {
-        // Generate smart title
+    // Optimistic local update
+    setChats(prev => prev.map(c =>
+      c.id === chatId ? { ...c, messages, lastUpdatedAt: lastUpdated } : c
+    ));
+
+    // Cloud Sync
+    if (user?.isCloud) {
+      try {
+        const updatedChat = { ...chat, messages, lastUpdatedAt: lastUpdated };
+        await supabaseService.upsertChat(user.id, updatedChat);
+      } catch (err) {
+        setToast({ message: "Cloud sync failed. Working locally only.", type: "error" });
+      }
+    }
+
+    // Title Generation for new chats
+    if (messages.length > 0 && (chat.title === 'New Chat' || !chat.title)) {
+      const firstUserMsg = messages.find(m => m.role === 'user');
+      if (firstUserMsg) {
         groqService.generateTitle(firstUserMsg.content).then(newTitle => {
           setChats(prev => prev.map(c => {
             if (c.id === chatId) {
               const updated = { ...c, title: newTitle };
-              if (user?.isCloud && user.id) supabaseService.upsertChat(user.id, updated);
+              if (user?.isCloud) supabaseService.upsertChat(user.id, updated).catch(() => { }); // Catch and ignore title update sync errors
               return updated;
             }
             return c;
