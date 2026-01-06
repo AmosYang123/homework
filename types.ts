@@ -50,4 +50,11 @@ export interface AppSettings {
   maxFileSize: number;
 }
 
-export type ViewType = 'main' | 'templates' | 'settings';
+export type ViewType = 'main' | 'templates' | 'settings' | 'auth';
+
+export interface User {
+  id: string;
+  name: string;
+  email?: string;
+  isCloud: boolean;
+}

@@ -1,116 +1,132 @@
-
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>A& | Intelligence Engine</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-      
-      :root {
-        --bg-main: #FFFFFF;
-        --bg-surface: #F9F9F9;
-        --border-primary: #EDEDED;
-        --text-primary: #111111;
-        --text-secondary: #666666;
-        --accent: #000000;
-        --accent-soft: #F2F2F2;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Homework</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg-main: #FFFFFF;
+      --bg-surface: #F9F9F9;
+      --border-primary: #EDEDED;
+      --text-primary: #111111;
+      --text-secondary: #666666;
+      --accent: #000000;
+      --accent-soft: #F2F2F2;
+    }
+
+    .dark {
+      --bg-main: #0A0A0A;
+      --bg-surface: #141414;
+      --border-primary: #222222;
+      --text-primary: #EEEEEE;
+      --text-secondary: #999999;
+      --accent: #FFFFFF;
+      --accent-soft: #1C1C1C;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      letter-spacing: -0.012em;
+      text-rendering: optimizeLegibility;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: var(--border-primary);
+    }
+
+    input,
+    textarea {
+      background: transparent;
+    }
+
+    ::selection {
+      background-color: var(--accent);
+      color: var(--bg-main);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
       }
 
-      .dark {
-        --bg-main: #0A0A0A;
-        --bg-surface: #141414;
-        --border-primary: #222222;
-        --text-primary: #EEEEEE;
-        --text-secondary: #999999;
-        --accent: #FFFFFF;
-        --accent-soft: #1C1C1C;
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
+    }
 
-      body {
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        background-color: var(--bg-main);
-        color: var(--text-primary);
-        letter-spacing: -0.012em;
-        text-rendering: optimizeLegibility;
-        transition: background-color 0.2s ease, color 0.2s ease;
-      }
+    .animate-slide-in {
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
 
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 3px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: var(--border-primary);
-      }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
 
-      input, textarea {
-        background: transparent;
-      }
-
-      ::selection {
-        background-color: var(--accent);
-        color: var(--bg-main);
-      }
-
-      @keyframes slideIn {
-        from { opacity: 0; transform: translateY(6px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-slide-in {
-        animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      }
-      
-      .scrollbar-hide::-webkit-scrollbar {
-        display: none;
-      }
-      .scrollbar-hide {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-    </style>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              accent: 'var(--accent)',
-              'bg-main': 'var(--bg-main)',
-              'bg-surface': 'var(--bg-surface)',
-              'border-primary': 'var(--border-primary)',
-              'text-primary': 'var(--text-primary)',
-              'text-secondary': 'var(--text-secondary)',
-              'accent-soft': 'var(--accent-soft)',
-            },
-            fontFamily: {
-              mono: ["JetBrains Mono", "monospace"],
-              sans: ["Inter", "system-ui", "sans-serif"],
-            }
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            accent: 'var(--accent)',
+            'bg-main': 'var(--bg-main)',
+            'bg-surface': 'var(--bg-surface)',
+            'border-primary': 'var(--border-primary)',
+            'text-primary': 'var(--text-primary)',
+            'text-secondary': 'var(--text-secondary)',
+            'accent-soft': 'var(--accent-soft)',
+          },
+          fontFamily: {
+            mono: ["JetBrains Mono", "monospace"],
+            sans: ["Inter", "system-ui", "sans-serif"],
           }
         }
       }
-    </script>
-    <script type="importmap">
+    }
+  </script>
+  <script type="importmap">
     {
       "imports": {
         "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
         "react/": "https://esm.sh/react@^19.2.3/",
         "react": "https://esm.sh/react@^19.2.3",
         "lucide-react": "https://esm.sh/lucide-react@^0.475.0",
-        "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+        "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+        "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.48.1"
       }
     }
     </script>
   <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-bg-main text-text-primary overflow-hidden selection:bg-accent selection:text-bg-main">
-    <div id="root"></div>
+
+<body class="bg-bg-main text-text-primary overflow-hidden selection:bg-accent selection:text-bg-main">
+  <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat, StyleTemplate, Message, FileAttachment } from '../types';
-import { geminiService } from '../services/geminiService';
+import { groqService } from '../services/groqService';
 import ChatMessage from './ChatMessage';
 import { ClaudeChatInput } from './ui/claude-style-chat-input';
 
@@ -15,7 +15,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
   const [isLoading, setIsLoading] = useState(false);
   // Sticky template from previous interactions or manual selection outside input
   const [stickyTemplate, setStickyTemplate] = useState<StyleTemplate | null>(null);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -50,8 +50,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
     // We only support one active template for logic generation per the original prompt requirement,
     // but the UI allows selecting multiple. We'll take the last one or merge logic if needed.
     // For now, we take the last added template as the primary driver.
-    let templateToUse = activeTemplates && activeTemplates.length > 0 
-      ? activeTemplates[activeTemplates.length - 1] 
+    let templateToUse = activeTemplates && activeTemplates.length > 0
+      ? activeTemplates[activeTemplates.length - 1]
       : stickyTemplate;
 
     // Fallback: Check for regex if no explicit chips were used (legacy/paste support)
@@ -95,12 +95,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
     setIsLoading(true);
 
     try {
-      const response = await geminiService.generateResponse(
+      const response = await groqService.generateResponse(
         finalContent,
         newMessages.slice(0, -1),
         templateToUse || undefined,
         attachments,
-        model,
+        'llama-3.3-70b-versatile',
         0
       );
 
@@ -118,7 +118,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: "Processing Failure: Engine could not compute transformation. Check network protocol and API authorization.",
+        content: `Processing Failure: ${error instanceof Error ? error.message : String(error)}`,
         timestamp: Date.now(),
       };
       onUpdateMessages([...newMessages, errorMessage]);
@@ -133,10 +133,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
 
   return (
     <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-bg-main">
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pt-16 pb-72">
-        <div className="max-w-4xl mx-auto">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pt-16 pb-48 flex flex-col">
+        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-center">
           {chat.messages.length === 0 ? (
-            <div className="py-40 text-center animate-slide-in">
+            <div className="flex-1 flex flex-col items-center justify-center text-center animate-slide-in pb-20">
               <div className="text-[10px] font-bold uppercase tracking-[0.5em] text-text-secondary opacity-30 mb-6">Environment Initialized</div>
               <h2 className="text-2xl font-bold tracking-tighter mb-4 text-text-primary">Ready for Input</h2>
               <p className="text-xs text-text-secondary uppercase tracking-[0.2em] opacity-60">Paste content or type @pattern to begin</p>
@@ -144,10 +144,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
           ) : (
             <div className="space-y-4">
               {chat.messages.map((msg) => (
-                <ChatMessage 
-                  key={msg.id} 
-                  message={msg} 
-                  template={templates.find(t => t.id === msg.templateUsedId)} 
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
+                  template={templates.find(t => t.id === msg.templateUsedId)}
                   onRegenerate={() => handleSendMessageFromInput({
                     message: msg.content,
                     files: [],
@@ -174,13 +174,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-12 bg-gradient-to-t from-bg-main via-bg-main to-transparent pt-32 shrink-0 z-20">
+      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-bg-main via-bg-main to-transparent pt-20 shrink-0 z-20">
         <div className="max-w-4xl mx-auto">
           {stickyTemplate && (
             <div className="mb-6 inline-flex items-center gap-6 bg-accent text-bg-main px-6 py-3 border border-accent shadow-2xl animate-slide-in">
               <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Locked Pattern: @{stickyTemplate.name}</span>
-              <button 
-                onClick={() => setStickyTemplate(null)} 
+              <button
+                onClick={() => setStickyTemplate(null)}
                 className="hover:opacity-60 transition-opacity border-l border-bg-main/20 pl-4"
                 title="Unlock pattern"
               >
@@ -189,14 +189,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
             </div>
           )}
 
-          <ClaudeChatInput 
-            onSendMessage={handleSendMessageFromInput} 
-            isLoading={isLoading} 
+          <ClaudeChatInput
+            onSendMessage={handleSendMessageFromInput}
+            isLoading={isLoading}
             templates={templates}
           />
-          
-          <div className="mt-8 flex justify-center opacity-30">
-            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-text-secondary">A& Intelligence Logic Engine Standard v1.0.4</p>
+
+          <div className="mt-4 flex justify-center opacity-30">
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-text-secondary">Homework Intelligence Logic Engine Standard v1.0.4</p>
           </div>
         </div>
       </div>
