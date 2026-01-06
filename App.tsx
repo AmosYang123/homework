@@ -10,6 +10,8 @@ import TemplateManager from './components/TemplateManager';
 import TemplateCreator from './components/TemplateCreator';
 import SettingsView from './components/SettingsView';
 import LoginPage from './components/LoginPage';
+import Toast, { ToastType } from './components/ui/Toast';
+import ConfirmModal from './components/ui/ConfirmModal';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewType>('main');
@@ -23,6 +25,8 @@ const App: React.FC = () => {
   const [isSystemDark, setIsSystemDark] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthRestored, setIsAuthRestored] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   // Initialize data
   useEffect(() => {
@@ -294,19 +298,28 @@ const App: React.FC = () => {
               onUpdate={setSettings}
               onLogout={handleLogout}
               onClearData={() => {
-                if (confirm("Confirm: This will permanently wipe all local chat and template data. Action is irreversible.")) {
-                  localStorage.clear();
-                  window.location.reload();
-                }
+                setConfirmModal({
+                  title: "Clear All Data",
+                  message: "Confirm: This will permanently wipe all local chat and template data. Action is irreversible.",
+                  onConfirm: () => {
+                    localStorage.clear();
+                    window.location.reload();
+                  }
+                });
               }}
               onExport={() => {
-                const data = { chats, templates, settings };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Homework_export_${new Date().getTime()}.json`;
-                a.click();
+                try {
+                  const data = { chats, templates, settings };
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Homework_export_${new Date().getTime()}.json`;
+                  a.click();
+                  setToast({ message: "Export successful", type: "success" });
+                } catch (e) {
+                  setToast({ message: "Export failed", type: "error" });
+                }
               }}
             />
           )}
@@ -318,6 +331,23 @@ const App: React.FC = () => {
           template={editingTemplate}
           onSave={handleSaveTemplate}
           onClose={() => { setIsTemplateModalOpen(false); setEditingTemplate(null); }}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
+          onCancel={() => setConfirmModal(null)}
         />
       )}
     </div>
