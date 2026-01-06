@@ -87,6 +87,15 @@ export const supabaseService = {
         }
     },
 
+    async deleteChat(chatId: string) {
+        const { error } = await supabase
+            .from('chats')
+            .delete()
+            .eq('id', chatId);
+
+        if (error) console.error('Error deleting chat:', error);
+    },
+
     // Templates
     async getTemplates(userId: string): Promise<StyleTemplate[]> {
         const { data, error } = await supabase
