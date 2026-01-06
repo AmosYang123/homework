@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Chat, StyleTemplate } from '../types';
+import { Chat, StyleTemplate, User } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -41,6 +41,19 @@ export const supabaseService = {
             .single();
         if (error) console.error('Profile fetch error:', error);
         return data;
+    },
+
+    async ensureProfile(user: User) {
+        // Try to insert, if it exists, it will just fail/do nothing
+        const { error } = await supabase
+            .from('profiles')
+            .upsert({
+                id: user.id,
+                email: user.email,
+                username: user.name,
+                updated_at: new Date().toISOString()
+            });
+        if (error) console.error('Force profile creation failed:', error);
     },
 
     // Chats

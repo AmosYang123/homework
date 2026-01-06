@@ -43,7 +43,7 @@ const App: React.FC = () => {
         setUser(u);
         localStorage.setItem('homework_user', JSON.stringify(u));
         // After user is set by auth change, load cloud data
-        loadCloudData(u.id);
+        loadCloudData(u.id, u);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         localStorage.removeItem('homework_user');
@@ -76,20 +76,43 @@ const App: React.FC = () => {
       }
     };
 
-    const loadCloudData = async (userId: string) => {
+    const loadCloudData = async (userId: string, currentUser: User) => {
       try {
+        // Force profile check
+        await supabaseService.ensureProfile(currentUser);
+
         const [cloudChats, cloudTemplates] = await Promise.all([
           supabaseService.getChats(userId),
           supabaseService.getTemplates(userId)
         ]);
 
-        setChats(cloudChats.length > 0 ? cloudChats : []);
-        if (cloudChats.length > 0) setActiveChatId(cloudChats[0].id);
-        setTemplates(cloudTemplates.length > 0 ? cloudTemplates : INITIAL_TEMPLATES);
+        // INTELLIGENT MERGE: 
+        // We combine local memory and cloud data to prevent the "Empty Logs" issue
+        setChats(prev => {
+          const combined = [...prev];
+          cloudChats.forEach(cc => {
+            const exists = combined.findIndex(c => c.id === cc.id);
+            if (exists === -1) combined.push(cc);
+            // If it exists locally, cloud version wins (usually safer)
+            else combined[exists] = cc;
+          });
+          return combined.sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt);
+        });
+
+        if (cloudChats.length > 0 && !activeChatId) setActiveChatId(cloudChats[0].id);
+
+        setTemplates(prev => {
+          const combined = [...prev];
+          cloudTemplates.forEach(ct => {
+            if (!combined.find(t => t.id === ct.id)) combined.push(ct);
+          });
+          return combined;
+        });
+
       } catch (err) {
         console.error("Cloud sync failed on init:", err);
         setToast({ message: "Cloud sync failed. Loading local data.", type: "error" });
-        loadLocalData(); // Fallback to local if cloud fails
+        loadLocalData();
       }
     };
 
@@ -251,6 +274,23 @@ const App: React.FC = () => {
     setTemplates(INITIAL_TEMPLATES);
   };
 
+  const handleSyncToCloud = async () => {
+    if (!user?.isCloud) return;
+    setToast({ message: "Starting emergency sync...", type: "info" });
+    try {
+      // Create user profile if missing
+      await supabaseService.ensureProfile(user);
+
+      const chatPromises = chats.map(c => supabaseService.upsertChat(user.id, c));
+      const templatePromises = templates.map(t => supabaseService.upsertTemplate(user.id, t));
+
+      await Promise.all([...chatPromises, ...templatePromises]);
+      setToast({ message: "Cloud Sync Complete!", type: "success" });
+    } catch (err) {
+      setToast({ message: "Sync failed. Check console.", type: "error" });
+    }
+  };
+
   if (!isAuthRestored) return null;
 
   if (!user) {
@@ -372,6 +412,7 @@ const App: React.FC = () => {
                   setToast({ message: "Export failed", type: "error" });
                 }
               }}
+              onSyncToCloud={handleSyncToCloud}
             />
           )}
         </div>

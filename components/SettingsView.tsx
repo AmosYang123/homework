@@ -9,9 +9,10 @@ interface SettingsViewProps {
   onClearData: () => void;
   onExport: () => void;
   onLogout: () => void;
+  onSyncToCloud: () => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ settings, user, onUpdate, onClearData, onExport, onLogout }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ settings, user, onUpdate, onClearData, onExport, onLogout, onSyncToCloud }) => {
   const updateField = (field: keyof AppSettings, value: any) => {
     onUpdate({ ...settings, [field]: value });
   };
@@ -95,6 +96,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, user, onUpdate, o
           <section>
             <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary mb-10 border-b border-border-primary pb-2">System Operations</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              {user.isCloud && (
+                <div
+                  className="group border border-accent p-8 hover:bg-accent/5 transition-all cursor-pointer"
+                  onClick={onSyncToCloud}
+                >
+                  <div className="text-[11px] font-bold uppercase tracking-widest mb-2 text-accent">Push Local to Cloud</div>
+                  <p className="text-[12px] text-text-secondary leading-relaxed mb-6">Force-upload all local chats and patterns to your account.</p>
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-accent opacity-0 group-hover:opacity-100 transition-opacity">Execute Cloud Sync</span>
+                </div>
+              )}
+
               <div
                 className="group border border-border-primary p-8 hover:border-accent transition-all cursor-pointer"
                 onClick={onExport}
