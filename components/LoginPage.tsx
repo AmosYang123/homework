@@ -47,13 +47,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             });
 
             if (error) {
-                // Check if it's a "user not found" type error
-                if (error.message?.toLowerCase().includes('invalid') ||
-                    error.message?.toLowerCase().includes('credentials')) {
-                    setError('Account not found. Please register first.');
-                    setCloudTab('register');
+                if (error.message?.toLowerCase().includes('invalid login credentials')) {
+                    setError('Invalid email or password. Please check your details or register if you don\'t have an account.');
                 } else {
-                    throw error;
+                    setError(error.message || 'Authentication failed');
                 }
                 return;
             }
