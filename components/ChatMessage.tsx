@@ -1,6 +1,10 @@
 
 import React, { useState } from 'react';
 import { Message, StyleTemplate } from '../types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface ChatMessageProps {
   message: Message;
@@ -8,16 +12,23 @@ interface ChatMessageProps {
   onRegenerate?: () => void;
   onDelete?: () => void;
   onEdit?: (newContent: string) => void;
+  isDark?: boolean;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, template, onRegenerate, onDelete, onEdit }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, template, onRegenerate, onDelete, onEdit, isDark }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+  const [isContextExpanded, setIsContextExpanded] = useState(false);
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(message.content);
+  const contextMatch = message.content.match(/\[CONTEXT\/MATERIAL\]\n([\s\S]*?)\n\n\[USER_QUERY\]\n([\s\S]*)/);
+  const hasContext = !!contextMatch;
+  const contextContent = contextMatch ? contextMatch[1] : '';
+  const queryContent = contextMatch ? contextMatch[2] : message.content;
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };
@@ -34,27 +45,44 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, template, onRegenera
     setIsEditing(false);
   };
 
-  const formatContent = (content: string) => {
-    return content.split('\n').map((line, i) => {
-      let formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-text-primary">$1</strong>');
-      formattedLine = formattedLine.replace(/`(.*?)`/g, '<code class="bg-accent-soft px-1.5 py-0.5 rounded text-accent font-mono text-[11px] font-medium">$1</code>');
+  const MarkdownComponents = {
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      const codeString = String(children).replace(/\n$/, '');
 
-      if (line.trim().startsWith('-')) {
+      if (!inline && match) {
         return (
-          <div key={i} className="pl-6 mb-2 flex items-start gap-4 animate-slide-in" style={{ animationDelay: `${i * 0.05}s` }}>
-            <span className="text-text-secondary mt-2.5 w-2 h-[1px] bg-text-secondary shrink-0 opacity-40"></span>
-            <span className="leading-relaxed" dangerouslySetInnerHTML={{ __html: formattedLine.replace(/^- \s*/, '') }} />
+          <div className="relative group/code my-6 animate-slide-in">
+            <div className="absolute right-3 top-3 z-10 opacity-0 group-hover/code:opacity-100 transition-opacity">
+              <button
+                onClick={() => copyToClipboard(codeString)}
+                className="bg-bg-surface/80 backdrop-blur-md border border-border-primary px-3 py-1.5 rounded text-[9px] font-bold uppercase tracking-widest hover:text-accent transition-colors"
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary/40 absolute left-4 top-3 pointer-events-none">
+              {match[1]}
+            </div>
+            <SyntaxHighlighter
+              style={isDark ? oneDark : oneLight}
+              language={match[1]}
+              PreTag="div"
+              className="rounded-xl !bg-bg-surface !p-8 !pt-12 !m-0 border border-border-primary/50 shadow-sm"
+              {...props}
+            >
+              {codeString}
+            </SyntaxHighlighter>
           </div>
         );
       }
+
       return (
-        <p key={i}
-          className="mb-5 last:mb-0 leading-relaxed animate-slide-in"
-          style={{ animationDelay: `${i * 0.03}s` }}
-          dangerouslySetInnerHTML={{ __html: formattedLine || '&nbsp;' }}
-        />
+        <code className="bg-accent-soft px-1.5 py-0.5 rounded text-accent font-mono text-[11px] font-medium" {...props}>
+          {children}
+        </code>
       );
-    });
+    }
   };
 
   return (
@@ -79,7 +107,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, template, onRegenera
         <div className="opacity-0 group-hover:opacity-100 flex items-center gap-6 transition-all duration-200">
           {!isUser ? (
             <>
-              <button onClick={copyToClipboard} className="text-[9px] uppercase font-bold text-text-secondary hover:text-accent transition-colors tracking-widest">
+              <button
+                onClick={() => copyToClipboard(message.content)}
+                className="text-[9px] uppercase font-bold text-text-secondary hover:text-accent transition-colors tracking-widest"
+              >
                 {copied ? 'Captured' : 'Copy'}
               </button>
               <button onClick={onRegenerate} className="text-[9px] uppercase font-bold text-text-secondary hover:text-accent transition-colors tracking-widest">
@@ -132,7 +163,46 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, template, onRegenera
             </div>
           </div>
         ) : (
-          <div className="whitespace-pre-wrap">{isUser ? message.content : formatContent(message.content)}</div>
+          <div className="markdown-content">
+            {isUser ? (
+              <div className="flex flex-col gap-6">
+                {hasContext && (
+                  <div className="bg-bg-surface/50 border border-border-primary rounded-xl overflow-hidden mb-2 transition-all">
+                    <button
+                      onClick={() => setIsContextExpanded(!isContextExpanded)}
+                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-bg-surface transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <i className="fa-solid fa-paperclip text-accent opacity-40 text-xs"></i>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
+                          Used material ({contextContent.length.toLocaleString()} chars)
+                        </span>
+                      </div>
+                      <i className={`fa-solid fa-chevron-${isContextExpanded ? 'up' : 'down'} text-[8px] text-text-secondary opacity-30 transition-transform`}></i>
+                    </button>
+                    {isContextExpanded && (
+                      <div className="px-6 py-6 border-t border-border-primary bg-bg-main/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={MarkdownComponents as any}
+                        >
+                          {contextContent}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="whitespace-pre-wrap">{queryContent}</div>
+              </div>
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={MarkdownComponents as any}
+              >
+                {message.content}
+              </ReactMarkdown>
+            )}
+          </div>
         )}
 
         {message.attachments && message.attachments.length > 0 && !isEditing && (

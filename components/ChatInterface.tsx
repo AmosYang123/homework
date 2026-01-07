@@ -1,20 +1,29 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Chat, StyleTemplate, Message, FileAttachment } from '../types';
+import { Chat, StyleTemplate, Message, FileAttachment, TemplateUsage } from '../types';
 import { groqService } from '../services/groqService';
 import ChatMessage from './ChatMessage';
 import { ClaudeChatInput } from './ui/claude-style-chat-input';
+import InputPanel from './ui/InputPanel';
+import { ToastType } from './ui/Toast';
+import ThreeSectionInvoker from './ui/ThreeSectionInvoker';
+import { buildThreeSectionPrompt } from './TemplateCreator';
 
 interface ChatInterfaceProps {
   chat: Chat;
   onUpdateMessages: (messages: Message[]) => void;
   templates: StyleTemplate[];
+  isDark?: boolean;
+  onShowToast?: (message: string, type: ToastType) => void;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, templates }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, templates, isDark, onShowToast }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [inputPanelContent, setInputPanelContent] = useState("");
+  const [isInputPanelExpanded, setIsInputPanelExpanded] = useState(false);
   // Sticky template from previous interactions or manual selection outside input
   const [stickyTemplate, setStickyTemplate] = useState<StyleTemplate | null>(null);
+  const [activeThreeSectionTemplate, setActiveThreeSectionTemplate] = useState<StyleTemplate | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -36,20 +45,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
     pastedContent: any[];
     model: string;
     activeTemplates?: StyleTemplate[];
+    threeSectionUsage?: TemplateUsage;
   }) => {
-    const { message, files, pastedContent, model, activeTemplates } = data;
+    const { message, files, pastedContent, model, activeTemplates, threeSectionUsage } = data;
 
     let finalContent = message;
+
+    // 1. Prepend Context from InputPanel if it exists
+    if (inputPanelContent.trim()) {
+      finalContent = `[CONTEXT/MATERIAL]\n${inputPanelContent}\n\n[USER_QUERY]\n${finalContent}`;
+    }
+
     if (pastedContent.length > 0) {
       finalContent += "\n\n[APPENDED_CONTEXT]\n" + pastedContent.map(p => p.content).join("\n---\n");
     }
 
-    if (!finalContent.trim() && files.length === 0) return;
+    if (!finalContent.trim() && files.length === 0 && !threeSectionUsage) return;
 
     // Prioritize templates sent from the input chips, fall back to sticky template
-    // We only support one active template for logic generation per the original prompt requirement,
-    // but the UI allows selecting multiple. We'll take the last one or merge logic if needed.
-    // For now, we take the last added template as the primary driver.
     let templateToUse = activeTemplates && activeTemplates.length > 0
       ? activeTemplates[activeTemplates.length - 1]
       : stickyTemplate;
@@ -61,6 +74,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
         const matched = templates.find(t => t.name.toLowerCase() === templateMatch[1].toLowerCase());
         if (matched) templateToUse = matched;
       }
+    }
+
+    // Special handling for Three-Section template construction
+    if (threeSectionUsage && templateToUse?.threeSection) {
+      finalContent = buildThreeSectionPrompt(
+        templateToUse.name,
+        threeSectionUsage.rawMaterial,
+        threeSectionUsage.template,
+        templateToUse.threeSection.exampleOutput?.content,
+        threeSectionUsage.useExample
+      );
     }
 
     const attachments: FileAttachment[] = [];
@@ -114,6 +138,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
 
       onUpdateMessages([...newMessages, assistantMessage]);
       setStickyTemplate(null); // Clear sticky
+
+      // 2. Clear Input Panel after send (with confirmation if > 500 chars)
+      if (inputPanelContent.length > 500) {
+        setInputPanelContent("");
+        setIsInputPanelExpanded(false);
+      } else {
+        setInputPanelContent("");
+        setIsInputPanelExpanded(false);
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: crypto.randomUUID(),
@@ -125,6 +158,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleThreeSectionSubmit = (usage: TemplateUsage) => {
+    if (!activeThreeSectionTemplate) return;
+
+    handleSendMessageFromInput({
+      message: `[Complex Transformation Execution] @${activeThreeSectionTemplate.name}`,
+      files: [],
+      pastedContent: [],
+      model: 'gemini-3-flash-preview',
+      activeTemplates: [activeThreeSectionTemplate],
+      threeSectionUsage: usage
+    });
+
+    setActiveThreeSectionTemplate(null);
   };
 
   const handleDeleteMessage = (id: string) => {
@@ -139,7 +187,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
     const isUser = messageToEdit.role === 'user';
 
     if (isUser) {
-      // Truncate at this point and regenerate
       const history = chat.messages.slice(0, index);
       const userMessage: Message = {
         ...messageToEdit,
@@ -188,6 +235,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
     }
   };
 
+  const handleLargePaste = (content: string) => {
+    setInputPanelContent(content);
+    setIsInputPanelExpanded(true);
+    if (onShowToast) {
+      onShowToast("Large text moved to Input Panel for better readability", "info");
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-bg-main">
       <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pt-16 pb-48 flex flex-col">
@@ -214,10 +269,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
                   })}
                   onDelete={() => handleDeleteMessage(msg.id)}
                   onEdit={(content) => handleEditMessage(msg.id, content)}
+                  isDark={isDark}
                 />
               ))}
               {isLoading && (
-
                 <div className="flex items-center gap-6 py-10 animate-slide-in">
                   <div className="flex gap-2">
                     <div className="w-1.5 h-1.5 bg-accent animate-pulse"></div>
@@ -234,7 +289,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-bg-main via-bg-main to-transparent pt-10 shrink-0 z-20">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto shrink-0">
           {stickyTemplate && (
             <div className="mb-6 inline-flex items-center gap-6 bg-accent text-bg-main px-6 py-3 border border-accent shadow-2xl animate-slide-in">
               <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Locked Pattern: @{stickyTemplate.name}</span>
@@ -248,10 +303,38 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateMessages, t
             </div>
           )}
 
+          {activeThreeSectionTemplate && (
+            <ThreeSectionInvoker
+              template={activeThreeSectionTemplate}
+              isDark={isDark}
+              onClose={() => setActiveThreeSectionTemplate(null)}
+              onSubmit={handleThreeSectionSubmit}
+            />
+          )}
+
+          <InputPanel
+            isExpanded={isInputPanelExpanded}
+            content={inputPanelContent}
+            onContentChange={setInputPanelContent}
+            onToggle={() => setIsInputPanelExpanded(!isInputPanelExpanded)}
+            onClear={() => {
+              if (inputPanelContent.length > 300) {
+                if (window.confirm("Are you sure you want to clear the context material?")) {
+                  setInputPanelContent("");
+                }
+              } else {
+                setInputPanelContent("");
+              }
+            }}
+            isDark={isDark}
+          />
+
           <ClaudeChatInput
             onSendMessage={handleSendMessageFromInput}
             isLoading={isLoading}
             templates={templates}
+            onLargePaste={handleLargePaste}
+            onThreeSectionTemplate={(t) => setActiveThreeSectionTemplate(t)}
           />
 
           <div className="mt-4 flex justify-center opacity-30">

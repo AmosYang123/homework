@@ -86,6 +86,93 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+
+    /* Premium Markdown Styles */
+    .markdown-content {
+      line-height: 1.7;
+    }
+
+    .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .markdown-content h1 { font-size: 1.5rem; }
+    .markdown-content h2 { font-size: 1.25rem; }
+    .markdown-content h3 { font-size: 1.1rem; }
+
+    .markdown-content p {
+      margin-bottom: 1.25rem;
+    }
+
+    .markdown-content ul, .markdown-content ol {
+      margin-bottom: 1.25rem;
+      padding-left: 1.5rem;
+    }
+
+    .markdown-content ul {
+      list-style-type: disc;
+    }
+
+    .markdown-content ol {
+      list-style-type: decimal;
+    }
+
+    .markdown-content li {
+      margin-bottom: 0.5rem;
+    }
+
+    .markdown-content code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: var(--accent-soft);
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+      color: var(--text-primary);
+    }
+
+    .markdown-content pre {
+      background: var(--bg-surface);
+      border: 1px border var(--border-primary);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1.5rem 0;
+      overflow-x: auto;
+    }
+
+    .markdown-content pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    .markdown-content blockquote {
+      border-left: 3px solid var(--border-primary);
+      padding-left: 1rem;
+      font-style: italic;
+      color: var(--text-secondary);
+      margin: 1.5rem 0;
+    }
+
+    .markdown-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+    }
+
+    .markdown-content th, .markdown-content td {
+      border: 1px solid var(--border-primary);
+      padding: 0.75rem;
+      text-align: left;
+    }
+
+    .markdown-content th {
+      background: var(--bg-surface);
+      font-weight: 600;
+    }
   </style>
   <script>
     tailwind.config = {

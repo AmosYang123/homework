@@ -25,16 +25,46 @@ export interface Chat {
   lastUpdatedAt: number;
 }
 
+export type TemplateType = 'standard' | 'three-section';
+
 export interface StyleTemplate {
   id: string;
   name: string;
   description?: string;
   icon: string;
-  inputExample: string;
-  outputExample: string;
+  type: TemplateType;
+  // Standard Template fields
+  inputExample?: string;
+  outputExample?: string;
+  // Three-Section Template fields
+  threeSection?: {
+    rawMaterial: {
+      label: string;
+      placeholder: string;
+      example: string;
+    };
+    template: {
+      label: string;
+      placeholder: string;
+      example: string;
+    };
+    exampleOutput?: {
+      label: string;
+      content: string;
+      enabled: boolean;
+    };
+  };
+  systemPrompt?: string;
   createdAt: number;
   lastUsedAt?: number;
   useCount: number;
+}
+
+export interface TemplateUsage {
+  templateId: string;
+  rawMaterial: string;
+  template: string;
+  useExample: boolean;
 }
 
 export interface AppSettings {

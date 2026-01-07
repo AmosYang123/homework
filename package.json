@@ -1,5 +1,5 @@
 {
-  "name": "a&-|-intelligence-engine",
+  "name": "homework-intelligence-engine",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,10 +11,15 @@
   "dependencies": {
     "@google/genai": "^1.34.0",
     "@supabase/supabase-js": "^2.89.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "lucide-react": "^0.475.0",
     "openai": "^6.15.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
     "youtube-transcript": "^1.2.1"
   },
   "devDependencies": {

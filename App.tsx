@@ -361,6 +361,8 @@ const App: React.FC = () => {
                 chat={activeChat}
                 onUpdateMessages={(messages) => handleUpdateMessages(activeChat.id, messages)}
                 templates={templates}
+                isDark={settings.theme === 'system' ? isSystemDark : settings.theme === 'dark'}
+                onShowToast={(message, type) => setToast({ message, type })}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center h-full max-w-sm mx-auto px-6 text-center animate-slide-in">

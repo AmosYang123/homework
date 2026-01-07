@@ -66,9 +66,11 @@ interface ClaudeChatInputProps {
     }) => void;
     isLoading?: boolean;
     templates: StyleTemplate[];
+    onLargePaste?: (content: string) => void;
+    onThreeSectionTemplate?: (template: StyleTemplate) => void;
 }
 
-export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage, isLoading, templates }) => {
+export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage, isLoading, templates, onLargePaste, onThreeSectionTemplate }) => {
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState<AttachedFile[]>([]);
     const [pastedContent, setPastedContent] = useState<PastedSnippet[]>([]);
@@ -117,8 +119,18 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
     const applyTemplate = (t: StyleTemplate) => {
         // Remove the "@filter" text from the message
         const words = message.split(/(@\w*)$/);
-        // words[0] is the text before the mention
-        setMessage(words[0] || "");
+        const prefix = words[0] || "";
+
+        if (t.type === 'three-section') {
+            if (onThreeSectionTemplate) {
+                onThreeSectionTemplate(t);
+                setMessage(prefix);
+                setShowMentions(false);
+                return;
+            }
+        }
+
+        setMessage(prefix);
 
         // Add the template to the active list
         if (!activeTemplates.find(at => at.id === t.id)) {
@@ -200,7 +212,10 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
         if (hasImage) return;
 
         const text = e.clipboardData.getData('text');
-        if (text.length > 500) {
+        if (text.length > 300 && onLargePaste) {
+            e.preventDefault();
+            onLargePaste(text);
+        } else if (text.length > 500) {
             e.preventDefault();
             setPastedContent(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), content: text }]);
         }

@@ -127,8 +127,11 @@ export const supabaseService = {
             name: t.name,
             description: t.description,
             icon: t.icon,
+            type: t.type || 'standard',
             inputExample: t.input_example,
             outputExample: t.output_example,
+            threeSection: t.three_section_data,
+            systemPrompt: t.system_prompt,
             createdAt: new Date(t.created_at).getTime(),
             lastUsedAt: t.last_used_at ? new Date(t.last_used_at).getTime() : undefined,
             useCount: t.use_count
@@ -146,8 +149,11 @@ export const supabaseService = {
                 name: template.name,
                 description: template.description,
                 icon: template.icon,
+                type: template.type,
                 input_example: template.inputExample,
                 output_example: template.outputExample,
+                three_section_data: template.threeSection,
+                system_prompt: template.systemPrompt,
                 created_at: new Date(template.createdAt).toISOString(),
                 last_used_at: template.lastUsedAt ? new Date(template.lastUsedAt).toISOString() : null,
                 use_count: template.useCount
