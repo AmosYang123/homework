@@ -20,11 +20,15 @@ export function buildThreeSectionPrompt(
 # Task
 Fill out the provided template/outline using ONLY information from the raw material provided. Do not add information from your training data.
 
+[SECTION_RAW]
 # Raw Material
 ${rawMaterial}
+[/SECTION_RAW]
 
+[SECTION_TEMPLATE]
 # Template to Fill Out
 ${templateContent}
+[/SECTION_TEMPLATE]
 `;
 
   if (exampleOutputContent && useExample) {

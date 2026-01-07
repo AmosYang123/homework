@@ -21,11 +21,26 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, template, onRegenera
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [isContextExpanded, setIsContextExpanded] = useState(false);
+  const [isRawExpanded, setIsRawExpanded] = useState(false);
+  const [isTemplateExpanded, setIsTemplateExpanded] = useState(false);
 
+  // Standard context match
   const contextMatch = message.content.match(/\[CONTEXT\/MATERIAL\]\n([\s\S]*?)\n\n\[USER_QUERY\]\n([\s\S]*)/);
   const hasContext = !!contextMatch;
   const contextContent = contextMatch ? contextMatch[1] : '';
-  const queryContent = contextMatch ? contextMatch[2] : message.content;
+  let queryContent = contextMatch ? contextMatch[2] : message.content;
+
+  // Three-Section match
+  const rawMatch = message.content.match(/\[SECTION_RAW\]\n([\s\S]*?)\n\[\/SECTION_RAW\]/);
+  const templateMatch = message.content.match(/\[SECTION_TEMPLATE\]\n([\s\S]*?)\n\[\/SECTION_TEMPLATE\]/);
+
+  if (rawMatch || templateMatch) {
+    // If we have these sections, strip them from the query content representation
+    queryContent = message.content
+      .replace(/\[SECTION_RAW\][\s\S]*?\[\/SECTION_RAW\]/, '')
+      .replace(/\[SECTION_TEMPLATE\][\s\S]*?\[\/SECTION_TEMPLATE\]/, '')
+      .trim();
+  }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -192,6 +207,61 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, template, onRegenera
                     )}
                   </div>
                 )}
+
+                {rawMatch && (
+                  <div className="bg-bg-surface/50 border border-border-primary rounded-xl overflow-hidden mb-2 transition-all">
+                    <button
+                      onClick={() => setIsRawExpanded(!isRawExpanded)}
+                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-bg-surface transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <i className="fa-solid fa-file-lines text-accent opacity-40 text-xs"></i>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
+                          Source Material ({rawMatch[1].length.toLocaleString()} chars)
+                        </span>
+                      </div>
+                      <i className={`fa-solid fa-chevron-${isRawExpanded ? 'up' : 'down'} text-[8px] text-text-secondary opacity-30 transition-transform`}></i>
+                    </button>
+                    {isRawExpanded && (
+                      <div className="px-6 py-6 border-t border-border-primary bg-bg-main/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={MarkdownComponents as any}
+                        >
+                          {rawMatch[1]}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {templateMatch && (
+                  <div className="bg-bg-surface/50 border border-border-primary rounded-xl overflow-hidden mb-2 transition-all">
+                    <button
+                      onClick={() => setIsTemplateExpanded(!isTemplateExpanded)}
+                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-bg-surface transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <i className="fa-solid fa-table-list text-accent opacity-40 text-xs"></i>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
+                          Target Structure ({templateMatch[1].length.toLocaleString()} chars)
+                        </span>
+                      </div>
+                      <i className={`fa-solid fa-chevron-${isTemplateExpanded ? 'up' : 'down'} text-[8px] text-text-secondary opacity-30 transition-transform`}></i>
+                    </button>
+                    {isTemplateExpanded && (
+                      <div className="px-6 py-6 border-t border-border-primary bg-bg-main/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={MarkdownComponents as any}
+                        >
+                          {templateMatch[1]}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="whitespace-pre-wrap">{queryContent}</div>
               </div>
             ) : (
